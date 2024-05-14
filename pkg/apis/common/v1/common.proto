@@ -1,0 +1,248 @@
+/*
+ *     Copyright 2022 The Dragonfly Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package common;
+
+import "validate/validate.proto";
+
+option go_package = "d7y.io/api/v2/pkg/apis/common/v1;common";
+
+// Code represents the code of the grpc api.
+enum Code {
+  X_UNSPECIFIED = 0;
+  // Success code 200-299.
+  Success = 200;
+  // Framework can not find server node.
+  ServerUnavailable = 500;
+
+  // Common response error 1000-1999.
+  // Client can be migrated to another scheduler/CDN.
+  ResourceLacked = 1000;
+  BackToSourceAborted = 1001;
+  BadRequest = 1400;
+  PeerTaskNotFound = 1404;
+  UnknownError = 1500;
+  RequestTimeOut = 1504;
+
+  // Client response error 4000-4999.
+  ClientError = 4000;
+  // Get piece task from other peer error.
+  ClientPieceRequestFail = 4001;
+  // Wait scheduler response timeout.
+  ClientScheduleTimeout = 4002;
+  ClientContextCanceled = 4003;
+  // When target peer downloads from source slowly, should wait.
+  ClientWaitPieceReady = 4004;
+  ClientPieceDownloadFail = 4005;
+  ClientRequestLimitFail = 4006;
+  ClientConnectionError = 4007;
+  ClientBackSourceError = 4008;
+  ClientPieceNotFound = 4404;
+
+  // Scheduler response error 5000-5999.
+  SchedError = 5000;
+  // Client should try to download from source.
+  SchedNeedBackSource = 5001; 
+  // Client should disconnect from scheduler.
+  SchedPeerGone = 5002;
+  // Peer not found in scheduler.
+  SchedPeerNotFound = 5004;
+  // Report piece.
+  SchedPeerPieceResultReportFail = 5005;
+  // Task status is fail.
+  SchedTaskStatusError = 5006;
+  // Task should be reregister.
+  SchedReregister = 5007;
+  // Task should be forbidden.
+  SchedForbidden = 5008;
+
+  // CDN system response error 6000-6999.
+  CDNTaskRegistryFail = 6001;
+  CDNTaskNotFound = 6404;
+
+  // Manager response error 7000-7999.
+  InvalidResourceType = 7001;
+}
+
+// PieceStyle represents the style of piece.
+enum PieceStyle {
+  PLAIN = 0;
+}
+
+// SizeScope represents size scope of task.
+enum SizeScope {
+  // NORMAL task has pieces is more than one piece.
+  NORMAL = 0;
+
+  // SMALL task's content length is more than 128 byte and has only one piece.
+  SMALL = 1;
+
+  // TINY task's content length is less than 128 byte.
+  TINY = 2;
+
+  // EMPTY task's content length is equal to zero.
+  EMPTY = 3;
+
+  // UNKNOW task has invalid size scope.
+  UNKNOW = 4;
+}
+
+// TaskType represents type of task.
+enum TaskType {
+	// Normal is normal type of task,
+	// normal task is a normal p2p task.
+  Normal = 0;
+
+	// DfCache is dfcache type of task,
+	// dfcache task is a cache task, and the task url is fake url.
+	// It can only be used for caching and cannot be downloaded back to source.
+  DfCache = 1;
+
+	// DfStore is dfstore type of task,
+	// dfstore task is a persistent task in backend.
+  DfStore = 2;
+}
+
+// Priority represents priority of application.
+enum Priority {
+  // LEVEL0 has no special meaning for scheduler.
+  LEVEL0 = 0;
+
+  // LEVEL1 represents the download task is forbidden,
+  // and an error code is returned during the registration.
+  LEVEL1 = 1;
+
+  // LEVEL2 represents when the task is downloaded for the first time,
+  // allow peers to download from the other peers,
+  // but not back-to-source. When the task is not downloaded for
+  // the first time, it is scheduled normally.
+  LEVEL2 = 2;
+
+  // LEVEL3 represents when the task is downloaded for the first time,
+  // the normal peer is first to download back-to-source.
+  // When the task is not downloaded for the first time, it is scheduled normally.
+  LEVEL3 = 3;
+
+  // LEVEL4 represents when the task is downloaded for the first time,
+  // the weak peer is first triggered to back-to-source.
+  // When the task is not downloaded for the first time, it is scheduled normally.
+  LEVEL4 = 4;
+
+  // LEVEL5 represents when the task is downloaded for the first time,
+  // the strong peer is first triggered to back-to-source.
+  // When the task is not downloaded for the first time, it is scheduled normally.
+  LEVEL5 = 5;
+
+  // LEVEL6 represents when the task is downloaded for the first time,
+  // the super peer is first triggered to back-to-source.
+  // When the task is not downloaded for the first time, it is scheduled normally.
+  LEVEL6 = 6;
+}
+
+// GrpcDfError represents error of the grpc.
+message GrpcDfError {
+  Code code = 1;
+  string message = 2;
+}
+
+// UrlMeta describes url meta info.
+message UrlMeta {
+  // Digest checks integrity of url content, for example md5:xxx or sha256:yyy.
+  string digest = 1 [(validate.rules).string = {pattern: "^(md5)|(sha256):[A-Fa-f0-9]+$", ignore_empty:true}];
+  // URL tag identifies different task for same url, conflict with digest.
+  string tag = 2;
+  // Content range for url.
+  string range = 3 [(validate.rules).string = {pattern: "^[0-9]+-[0-9]*$", ignore_empty:true}];
+  // Filter url used to generate task id.
+  string filter = 4;
+  // Other url header infos.
+  map<string, string> header = 5;
+  // Application.
+  string application = 6;
+  // Priority.
+  Priority priority = 7;
+}
+
+// PieceTaskRequest represents request of PieceTask.
+message PieceTaskRequest {
+  string task_id = 1 [(validate.rules).string.min_len = 1];
+  string src_pid = 2 [(validate.rules).string.min_len = 1];
+  string dst_pid = 3 [(validate.rules).string.min_len = 1];
+  // Piece number.
+  uint32 start_num = 4 [(validate.rules).uint32.gte = 0];
+  // Expected piece count, limit = 0 represent request pieces as many shards as possible.
+  uint32 limit = 5 [(validate.rules).uint32.gte = 0];
+}
+
+// Piece metadata.
+message PieceInfo {
+  // If piece_num is less than zero, it means to start report piece flag.
+  int32 piece_num = 1;
+  uint64 range_start = 2 [(validate.rules).uint64.gte = 0];
+  uint32 range_size = 3 [(validate.rules).uint32.gte = 0];
+  string piece_md5 = 4 [(validate.rules).string = {pattern:"([a-f\\d]{32}|[A-F\\d]{32}|[a-f\\d]{16}|[A-F\\d]{16})", ignore_empty:true}];
+  uint64 piece_offset = 5 [(validate.rules).uint64.gte = 0];
+  PieceStyle piece_style = 6;
+  // Cost of the downloading.
+  uint64 download_cost = 7 [(validate.rules).uint64.gte = 0];
+}
+
+ // ExtendAttribute is extend attribute.
+message ExtendAttribute {
+  // Task response header, eg: HTTP Response Header.
+  map<string, string> header = 1;
+  // Task response code, eg: HTTP Status Code.
+  int32 status_code = 2;
+  // Task response status, eg: HTTP Status.
+  string status = 3;
+}
+
+// Piece metadata.
+message PiecePacket {
+  string task_id = 2 [(validate.rules).string.min_len = 1];
+  string dst_pid = 3 [(validate.rules).string.min_len = 1];
+  // Address of the remote peer.
+  string dst_addr = 4 [(validate.rules).string.min_len = 1];
+  repeated PieceInfo piece_infos = 5;
+  // Total piece count for url, total_piece represent total piece is unknown.
+  int32 total_piece = 6;
+  // If content_length is less than zero, it means content length is unknown.
+  int64 content_length = 7;
+  // Sha256 code of all piece md5.
+  string piece_md5_sign = 8;
+  // Task extend attribute.
+  ExtendAttribute extend_attribute = 9;
+}
+
+// Host metadata.
+message Host {
+  // Host id.
+  string id = 1 [(validate.rules).string.min_len = 1];
+  // Host ip.
+  string ip = 2 [(validate.rules).string.min_len = 1];
+  // Peer hostname.
+  string hostname = 3 [(validate.rules).string.hostname = true];
+  // Port of grpc service.
+  int32 port = 4 [(validate.rules).int32 = {gte: 1024, lt: 65535}];
+  // Port of download server.
+  int32 download_port = 5 [(validate.rules).int32 = {gte: 1024, lt: 65535}];
+  // Host location, eg: area|country|province|city.
+  string location = 7 [(validate.rules).string = {min_len: 1, ignore_empty: true}];
+  // IDC where the peer host is located.
+  string idc = 8 [(validate.rules).string = {min_len: 1, ignore_empty: true}];
+}

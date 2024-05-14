@@ -1,0 +1,372 @@
+/*
+ *     Copyright 2022 The Dragonfly Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package common.v2;
+
+import "validate/validate.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "d7y.io/api/v2/pkg/apis/common/v2;common";
+
+// SizeScope represents size scope of task.
+enum SizeScope {
+  // NORMAL task has pieces is more than one piece.
+  NORMAL = 0;
+
+  // SMALL task's content length is more than 128 byte and has only one piece.
+  SMALL = 1;
+
+  // TINY task's content length is less than 128 byte.
+  TINY = 2;
+
+  // EMPTY task's content length is equal to zero.
+  EMPTY = 3;
+
+  // UNKNOW task has invalid size scope.
+  UNKNOW = 4;
+}
+
+// TaskType represents type of task.
+enum TaskType {
+  // DFDAEMON is dfdeamon type of task,
+  // dfdeamon task is a normal p2p task.
+  DFDAEMON = 0;
+
+  // DFCACHE is dfcache type of task,
+  // dfcache task is a cache task, and the task url is fake url.
+  // It can only be used for caching and cannot be downloaded back to source.
+  DFCACHE = 1;
+
+  // DFSTORE is dfstore type of task,
+  // dfstore task is a persistent task in backend.
+  DFSTORE = 2;
+}
+
+// TrafficType represents type of traffic.
+enum TrafficType {
+  // BACK_TO_SOURCE is to download traffic from the source.
+  BACK_TO_SOURCE = 0;
+
+  // REMOTE_PEER is to download traffic from the remote peer.
+  REMOTE_PEER = 1;
+
+  // LOCAL_PEER is to download traffic from the local peer.
+  LOCAL_PEER = 2;
+}
+
+// Priority represents priority of application.
+enum Priority {
+  // LEVEL0 has no special meaning for scheduler.
+  LEVEL0 = 0;
+
+  // LEVEL1 represents the download task is forbidden,
+  // and an error code is returned during the registration.
+  LEVEL1 = 1;
+
+  // LEVEL2 represents when the task is downloaded for the first time,
+  // allow peers to download from the other peers,
+  // but not back-to-source. When the task is not downloaded for
+  // the first time, it is scheduled normally.
+  LEVEL2 = 2;
+
+  // LEVEL3 represents when the task is downloaded for the first time,
+  // the normal peer is first to download back-to-source.
+  // When the task is not downloaded for the first time, it is scheduled normally.
+  LEVEL3 = 3;
+
+  // LEVEL4 represents when the task is downloaded for the first time,
+  // the weak peer is first triggered to back-to-source.
+  // When the task is not downloaded for the first time, it is scheduled normally.
+  LEVEL4 = 4;
+
+  // LEVEL5 represents when the task is downloaded for the first time,
+  // the strong peer is first triggered to back-to-source.
+  // When the task is not downloaded for the first time, it is scheduled normally.
+  LEVEL5 = 5;
+
+  // LEVEL6 represents when the task is downloaded for the first time,
+  // the super peer is first triggered to back-to-source.
+  // When the task is not downloaded for the first time, it is scheduled normally.
+  LEVEL6 = 6;
+}
+
+// Peer metadata.
+message Peer {
+  // Peer id.
+  string id = 1 [(validate.rules).string.min_len = 1];
+  // Range is url range of request.
+  Range range = 2;
+  // Peer priority.
+  Priority priority = 3 [(validate.rules).enum.defined_only = true];
+  // Pieces of peer.
+  repeated Piece pieces = 4 [(validate.rules).repeated = {min_items: 1, ignore_empty: true}];
+  // Peer downloads costs time.
+  google.protobuf.Duration cost = 5 [(validate.rules).duration.required = true];
+  // Peer state.
+  string state = 6 [(validate.rules).string.min_len = 1];
+  // Task info.
+  Task task = 7 [(validate.rules).message.required = true];
+  // Host info.
+  Host host = 8 [(validate.rules).message.required = true];
+  // NeedBackToSource needs downloaded from source.
+  bool need_back_to_source = 9;
+  // Peer create time.
+  google.protobuf.Timestamp created_at = 10 [(validate.rules).timestamp.required = true];
+  // Peer update time.
+  google.protobuf.Timestamp updated_at = 11 [(validate.rules).timestamp.required = true];
+}
+
+// Task metadata.
+message Task {
+  // Task id.
+  string id = 1 [(validate.rules).string.min_len = 1];
+  // Task type.
+  TaskType type = 2 [(validate.rules).enum.defined_only = true];
+  // Download url.
+  string url = 3 [(validate.rules).string.uri = true];
+  // Digest of the pieces digest, for example md5:xxx or sha256:yyy.
+  string digest = 4 [(validate.rules).string = {pattern: "^(md5)|(sha256):[A-Fa-f0-9]+$", ignore_empty: true}];
+  // URL tag identifies different task for same url.
+  string tag = 5;
+  // Application of task.
+  string application = 6;
+  // Filter url used to generate task id.
+  repeated string filters = 7;
+  // Task request headers.
+  map<string, string> header = 8;
+  // Task piece length.
+  int32 piece_length = 9 [(validate.rules).int32.gte = 1];
+  // Task content length.
+  int64 content_length = 10 [(validate.rules).int64.gte = 1];
+  // Task piece count.
+  int32 piece_count = 11 [(validate.rules).int32.gte = 0];
+  // Task size scope.
+  SizeScope size_scope = 12;
+  // Pieces of task.
+  repeated Piece pieces = 13 [(validate.rules).repeated = {min_items: 1, ignore_empty: true}];
+  // Task state.
+  string state = 14 [(validate.rules).string.min_len = 1];
+  // Task peer count.
+  int32 peer_count = 15 [(validate.rules).int32.gte = 0];
+  // Task contains available peer.
+  bool hasAvailablePeer = 16;
+  // Task create time.
+  google.protobuf.Timestamp created_at = 17 [(validate.rules).timestamp.required = true];
+  // Task update time.
+  google.protobuf.Timestamp updated_at = 18 [(validate.rules).timestamp.required = true];
+}
+
+// Host metadata.
+message Host {
+  // Host id.
+  string id = 1 [(validate.rules).string.min_len = 1];
+  // Host type.
+  uint32 type = 2 [(validate.rules).uint32.lte = 3];
+  // Hostname.
+  string hostname = 3 [(validate.rules).string.min_len = 1];
+  // Host ip.
+  string ip = 4 [(validate.rules).string.ip = true];
+  // Port of grpc service.
+  int32 port = 5 [(validate.rules).int32 = {gte: 1024, lt: 65535}];
+    // Port of download server.
+  int32 download_port = 6 [(validate.rules).int32 = {gte: 1024, lt: 65535}];
+  // Host OS.
+  string os = 7;
+  // Host platform.
+  string platform = 8;
+  // Host platform family.
+  string platform_family = 9;
+  // Host platform version.
+  string platform_version = 10;
+  // Host kernel version.
+  string kernel_version = 11;
+  // CPU Stat.
+  optional CPU cpu = 12;
+  // Memory Stat.
+  optional Memory memory = 13;
+  // Network Stat.
+  optional Network network = 14;
+  // Disk Stat.
+  optional Disk disk = 15;
+  // Build information.
+  optional Build build = 16;
+}
+
+// CPU Stat.
+message CPU {
+  // Number of logical cores in the system.
+  uint32 logical_count = 1;
+  // Number of physical cores in the system
+  uint32 physical_count = 2;
+  // Percent calculates the percentage of cpu used.
+  double percent = 3 [(validate.rules).double.gte = 0];
+  // Calculates the percentage of cpu used by process.
+  double process_percent = 4 [(validate.rules).double.gte = 0];
+  // CPUTimes contains the amounts of time the CPU has spent performing different kinds of work.
+  optional CPUTimes times = 5;
+}
+
+// CPUTimes contains the amounts of time the CPU has spent performing different
+// kinds of work. Time units are in seconds.
+message CPUTimes {
+  // CPU time of user.
+  double user = 1 [(validate.rules).double.gte = 0];
+  // CPU time of system.
+  double system = 2 [(validate.rules).double.gte = 0];
+  // CPU time of idle.
+  double idle = 3 [(validate.rules).double.gte = 0];
+  // CPU time of nice.
+  double nice = 4 [(validate.rules).double.gte = 0];
+  // CPU time of iowait.
+  double iowait = 5 [(validate.rules).double.gte = 0];
+  // CPU time of irq.
+  double irq = 6 [(validate.rules).double.gte = 0];
+  // CPU time of softirq.
+  double softirq = 7 [(validate.rules).double.gte = 0];
+  // CPU time of steal.
+  double steal = 8 [(validate.rules).double.gte = 0];
+  // CPU time of guest.
+  double guest = 9 [(validate.rules).double.gte = 0];
+  // CPU time of guest nice.
+  double guest_nice = 10 [(validate.rules).double.gte = 0];
+}
+
+// Memory Stat.
+message Memory {
+  // Total amount of RAM on this system.
+  uint64 total = 1;
+  // RAM available for programs to allocate.
+  uint64 available = 2;
+  // RAM used by programs.
+  uint64 used = 3;
+  // Percentage of RAM used by programs.
+  double used_percent = 4 [(validate.rules).double = {gte: 0, lte: 100}];
+  // Calculates the percentage of memory used by process.
+  double process_used_percent = 5 [(validate.rules).double = {gte: 0, lte: 100}];
+  // This is the kernel's notion of free memory.
+  uint64 free = 6;
+}
+
+// Network Stat.
+message Network {
+  // Return count of tcp connections opened and status is ESTABLISHED.
+  uint32 tcp_connection_count = 1;
+  // Return count of upload tcp connections opened and status is ESTABLISHED.
+  uint32 upload_tcp_connection_count = 2;
+  // Location path(area|country|province|city|...).
+  optional string location = 3;
+  // IDC where the peer host is located
+  optional string idc = 4;
+}
+
+// Disk Stat.
+message Disk {
+  // Total amount of disk on the data path of dragonfly.
+  uint64 total = 1;
+  // Free amount of disk on the data path of dragonfly.
+  uint64 free = 2;
+  // Used amount of disk on the data path of dragonfly.
+  uint64 used = 3;
+  // Used percent of disk on the data path of dragonfly directory.
+  double used_percent = 4 [(validate.rules).double = {gte: 0, lte: 100}];
+  // Total amount of indoes on the data path of dragonfly directory.
+  uint64 inodes_total = 5;
+  // Used amount of indoes on the data path of dragonfly directory.
+  uint64 inodes_used = 6;
+  // Free amount of indoes on the data path of dragonfly directory.
+  uint64 inodes_free = 7;
+  // Used percent of indoes on the data path of dragonfly directory.
+  double inodes_used_percent = 8 [(validate.rules).double = {gte: 0, lte: 100}];
+}
+
+// Build information.
+message Build {
+  // Git version.
+  string git_version = 1;
+  // Git commit.
+  optional string git_commit = 2;
+  // Golang version.
+  optional string go_version = 3;
+  // Rust version.
+  optional string rust_version = 4;
+  // Build platform.
+  optional string platform = 5;
+}
+
+// Download information.
+message Download {
+  // Download url.
+  string url = 1 [(validate.rules).string.uri = true];
+  // Digest of the pieces digest, for example md5:xxx or sha256:yyy.
+  string digest = 2 [(validate.rules).string = {pattern: "^(md5)|(sha256):[A-Fa-f0-9]+$", ignore_empty: true}];
+  // Range is url range of request.
+  Range range = 3;
+  // Task type.
+  TaskType type = 4 [(validate.rules).enum.defined_only = true];
+  // URL tag identifies different task for same url.
+  string tag = 5;
+  // Application of task.
+  string application = 6;
+  // Peer priority.
+  Priority priority = 7 [(validate.rules).enum.defined_only = true];
+  // Filter url used to generate task id.
+  repeated string filters = 8;
+  // Task request headers.
+  map<string, string> header = 9;
+  // Task piece length.
+  int32 piece_length = 10 [(validate.rules).int32.gte = 1];
+  // File path to be exported.
+  string output_path = 11 [(validate.rules).string = {min_len: 1, ignore_empty: true}];
+  // Download timeout.
+  google.protobuf.Duration timeout = 12 [(validate.rules).duration.required = true];
+  // Download rate limit in bytes per second.
+  double download_rate_limit = 13 [(validate.rules).double.gte = 0];
+  // NeedBackToSource needs downloaded from source.
+  bool need_back_to_source = 14;
+}
+
+// Range represents download range.
+message Range {
+  // Start of range.
+  int64 start = 1;
+  // Length of range.
+  int64 length = 2;
+}
+
+// Piece represents information of piece.
+message Piece {
+  // Piece number.
+  int32 number = 1 [(validate.rules).int32.gte = 0];
+  // Parent peer id.
+  string parent_id = 2 [(validate.rules).string = {min_len: 1, ignore_empty: true}];
+  // Piece offset.
+  uint64 offset = 3 [(validate.rules).uint64.gte = 0];
+  // Piece length.
+  uint64 length = 4 [(validate.rules).uint64.gt = 0];
+  // Digest of the piece data, for example md5:xxx or sha256:yyy.
+  string digest = 5 [(validate.rules).string = {pattern: "^(md5)|(sha256):[A-Fa-f0-9]+$", ignore_empty: true}];
+  // Piece content.
+  bytes content = 6 [(validate.rules).bytes = {min_len: 1, ignore_empty: true}];
+  // Traffic type.
+  TrafficType traffic_type = 7;
+  // Downloading piece costs time.
+  google.protobuf.Duration cost = 8 [(validate.rules).duration.required = true];
+  // Piece create time.
+  google.protobuf.Timestamp created_at = 9 [(validate.rules).timestamp.required = true];
+}

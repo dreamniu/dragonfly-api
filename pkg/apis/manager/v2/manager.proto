@@ -1,0 +1,403 @@
+/*
+ *     Copyright 2022 The Dragonfly Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package manager.v2;
+
+import "pkg/apis/common/v2/common.proto";
+import "google/protobuf/empty.proto";
+import "validate/validate.proto";
+
+option go_package = "d7y.io/api/v2/pkg/apis/manager/v2;manager";
+
+// Request source type.
+enum SourceType {
+  // Scheduler service.
+  SCHEDULER_SOURCE = 0;
+  // Peer service.
+  PEER_SOURCE = 1;
+  // SeedPeer service.
+  SEED_PEER_SOURCE = 2;
+}
+
+// SeedPeerCluster represents cluster of seed peer.
+message SeedPeerCluster {
+  // Cluster id.
+  uint64 id = 1;
+  // Cluster name.
+  string name = 2;
+  // Cluster biography.
+  string bio = 3;
+  // Cluster configuration.
+  bytes config = 4;
+}
+
+// SeedPeer represents seed peer for network.
+message SeedPeer {
+  // Seed peer id.
+  uint64 id = 1;
+  // Seed peer hostname.
+  string hostname = 2;
+  // Seed peer type.
+  string type = 3;
+  // Seed peer idc.
+  optional string idc = 4;
+  // Seed peer location.
+  optional string location = 5;
+  // Seed peer ip.
+  string ip = 6;
+  // Seed peer grpc port.
+  int32 port = 7;
+   // Seed peer download port.
+  int32 download_port = 8;
+  // Seed peer state.
+  string state = 9;
+  // ID of the cluster to which the seed peer belongs.
+  uint64 seed_peer_cluster_id = 10;
+  // Cluster to which the seed peer belongs.
+  SeedPeerCluster seed_peer_cluster = 11;
+  // Schedulers included in seed peer.
+  repeated Scheduler schedulers = 12;
+  // Seed peer object storage port.
+  int32 object_storage_port = 13;
+}
+
+// GetSeedPeerRequest represents request of GetSeedPeer.
+message GetSeedPeerRequest {
+  // Request source type.
+  SourceType source_type = 1 [(validate.rules).enum.defined_only = true];
+  // Seed peer hostname.
+  string hostname = 2 [(validate.rules).string.hostname = true];
+  // ID of the cluster to which the seed peer belongs.
+  uint64 seed_peer_cluster_id = 3 [(validate.rules).uint64 = {gte: 1}];
+  // Seed peer ip.
+  string ip = 4 [(validate.rules).string = {ip: true, ignore_empty: true}];
+}
+
+// UpdateSeedPeerRequest represents request of UpdateSeedPeer.
+message UpdateSeedPeerRequest {
+  // Request source type.
+  SourceType source_type = 1 [(validate.rules).enum.defined_only = true];
+  // Seed peer hostname.
+  string hostname = 2 [(validate.rules).string.hostname = true];
+  // Seed peer type.
+  string type = 3 [(validate.rules).string = {in: ["super", "strong", "weak"]}];
+  // Seed peer idc.
+  optional string idc = 4 [(validate.rules).string = {min_len: 1, max_len: 1024, ignore_empty: true}];
+  // Seed peer location.
+  optional string location = 5 [(validate.rules).string = {max_len: 1024, ignore_empty: true}];
+  // Seed peer ip.
+  string ip = 6 [(validate.rules).string = {ip: true}];
+  // Seed peer port.
+  int32 port = 7 [(validate.rules).int32 = {gte: 1024, lt: 65535}];
+  // Seed peer download port.
+  int32 download_port = 8 [(validate.rules).int32 = {gte: 1024, lt: 65535}];
+  // ID of the cluster to which the seed peer belongs.
+  uint64 seed_peer_cluster_id = 9 [(validate.rules).uint64 = {gte: 1}];
+  // Seed peer object storage port.
+  int32 object_storage_port = 10 [(validate.rules).int32 = {gte: 1024, lt: 65535, ignore_empty: true}];
+}
+
+// DeleteSeedPeerRequest represents request of DeleteSeedPeer.
+message DeleteSeedPeerRequest {
+  // Request source type.
+  SourceType source_type = 1 [(validate.rules).enum.defined_only = true];
+  // Seed peer hostname.
+  string hostname = 2 [(validate.rules).string.hostname = true];
+  // ID of the cluster to which the seed peer belongs.
+  uint64 seed_peer_cluster_id = 3 [(validate.rules).uint64 = {gte: 1}];
+  // Seed peer ip.
+  string ip = 4 [(validate.rules).string = {ip: true, ignore_empty: true}];
+}
+
+// SeedPeerCluster represents cluster of scheduler.
+message SchedulerCluster {
+  // Cluster id.
+  uint64 id = 1;
+  // Cluster name.
+  string name = 2;
+  // Cluster biography.
+  string bio = 3;
+  // Cluster config.
+  bytes config = 4;
+  // Cluster client config.
+  bytes client_config = 5;
+  // Cluster scopes.
+  bytes scopes = 6;
+}
+
+// SeedPeerCluster represents scheduler for network.
+message Scheduler {
+  // Scheduler id.
+  uint64 id = 1;
+  // Scheduler hostname.
+  string hostname = 2;
+  // Scheduler idc.
+  optional string idc = 3;
+  // Scheduler location.
+  optional string location = 4;
+  // Scheduler ip.
+  string ip = 5;
+  // Scheduler grpc port.
+  int32 port = 6;
+  // Scheduler state.
+  string state = 7;
+  // ID of the cluster to which the scheduler belongs.
+  uint64 scheduler_cluster_id = 8;
+  // Cluster to which the scheduler belongs.
+  SchedulerCluster scheduler_cluster = 9;
+  // Seed peers to which the scheduler belongs.
+  repeated SeedPeer seed_peers = 10;
+  // Feature flags of scheduler.
+  bytes features = 11;
+}
+
+// GetSchedulerRequest represents request of GetScheduler.
+message GetSchedulerRequest {
+  // Request source type.
+  SourceType source_type = 1 [(validate.rules).enum.defined_only = true];
+  // Scheduler hostname.
+  string hostname = 2 [(validate.rules).string.hostname = true];
+  // ID of the cluster to which the scheduler belongs.
+  uint64 scheduler_cluster_id = 3 [(validate.rules).uint64 = {gte: 1}];
+  // Scheduler ip.
+  string ip = 4 [(validate.rules).string = {ip: true, ignore_empty: true}];
+}
+
+// UpdateSchedulerRequest represents request of UpdateScheduler.
+message UpdateSchedulerRequest {
+  // Request source type.
+  SourceType source_type = 1 [(validate.rules).enum.defined_only = true];
+  // Scheduler hostname.
+  string hostname = 2 [(validate.rules).string.hostname = true];
+  // ID of the cluster to which the scheduler belongs.
+  uint64 scheduler_cluster_id = 3 [(validate.rules).uint64 = {gte: 1}];
+  // Scheduler idc.
+  optional string idc = 4 [(validate.rules).string = {min_len: 1, max_len: 1024, ignore_empty: true}];
+  // Scheduler location.
+  optional string location = 5 [(validate.rules).string = {min_len: 1, max_len: 1024, ignore_empty: true}];
+  // Scheduler ip.
+  string ip = 6 [(validate.rules).string = {ip: true}];
+  // Scheduler port.
+  int32 port = 7 [(validate.rules).int32 = {gte: 1, lt: 65535}];
+}
+
+// ListSchedulersRequest represents request of ListSchedulers.
+message ListSchedulersRequest {
+  // Request source type.
+  SourceType source_type = 1 [(validate.rules).enum.defined_only = true];
+  // Source service hostname.
+  string hostname = 2 [(validate.rules).string.hostname = true];
+  // Source service ip.
+  string ip = 3 [(validate.rules).string.ip = true];
+  // Source service host information.
+  map<string, string> host_info = 4 [(validate.rules).map.ignore_empty = true];
+  // Dfdaemon version.
+  string version = 5 [(validate.rules).string = {min_len: 1, max_len: 1024, ignore_empty: true}];
+  // Dfdaemon commit.
+  string commit = 6 [(validate.rules).string = {min_len: 1, max_len: 1024, ignore_empty: true}];
+}
+
+// ListSchedulersResponse represents response of ListSchedulers.
+message ListSchedulersResponse {
+  // Schedulers to which the source service belongs.
+  repeated Scheduler schedulers = 1;
+}
+
+// ObjectStorage represents config of object storage.
+message ObjectStorage {
+  // name is object storage name of type, it can be s3, oss or obs.
+  string name = 1 [(validate.rules).string = {min_len: 1, max_len: 1024}];
+  // Region is storage region.
+  string region = 2 [(validate.rules).string = {min_len: 1, max_len: 1024, ignore_empty: true}];
+  // Endpoint is datacenter endpoint.
+  string endpoint = 3 [(validate.rules).string = {min_len: 1, max_len: 1024, ignore_empty: true}];
+  // AccessKey is access key ID.
+  string access_key = 4 [(validate.rules).string = {min_len: 1, max_len: 1024, ignore_empty: true}];
+  // SecretKey is access key secret.
+  string secret_key = 5 [(validate.rules).string = {min_len: 1, max_len: 1024, ignore_empty: true}];
+  // S3ForcePathStyle sets force path style for s3, true by default.
+  // Set this to `true` to force the request to use path-style addressing,
+  // i.e., `http://s3.amazonaws.com/BUCKET/KEY`. By default, the S3 client
+  // will use virtual hosted bucket addressing when possible
+  // (`http://BUCKET.s3.amazonaws.com/KEY`).
+  // Refer to https://github.com/aws/aws-sdk-go/blob/main/aws/config.go#L118.
+  bool s3_force_path_style = 6;
+}
+
+// GetObjectStorageRequest represents request of GetObjectStorage.
+message GetObjectStorageRequest {
+  // Request source type.
+  SourceType source_type = 1 [(validate.rules).enum.defined_only = true];
+  // Source service hostname.
+  string hostname = 2 [(validate.rules).string.hostname = true];
+  // Source service ip.
+  string ip = 3 [(validate.rules).string.ip = true];
+}
+
+// Bucket represents config of bucket.
+message Bucket {
+  // Bucket name.
+  string name = 1 [(validate.rules).string = {min_len: 1, max_len: 1024}];
+}
+
+// ListSchedulersRequest represents request of ListBuckets.
+message ListBucketsRequest {
+  // Request source type.
+  SourceType source_type = 1 [(validate.rules).enum.defined_only = true];
+  // Source service hostname.
+  string hostname = 2 [(validate.rules).string.hostname = true];
+  // Source service ip.
+  string ip = 3 [(validate.rules).string.ip = true];
+}
+
+// ListBucketsResponse represents response of ListBuckets.
+message ListBucketsResponse {
+  // Bucket configs.
+  repeated Bucket buckets = 1;
+}
+
+// URLPriority represents config of url priority.
+message URLPriority {
+  // URL regex.
+  string regex = 1 [(validate.rules).string = {min_len: 1}];
+  // URL priority value.
+  common.v2.Priority value = 2;
+}
+
+// ApplicationPriority represents config of application priority.
+message ApplicationPriority {
+  // Priority value.
+  common.v2.Priority value = 1;
+  // URL priority.
+  repeated URLPriority urls = 2;
+}
+
+// Application represents config of application.
+message Application {
+  // Application id.
+  uint64 id = 1 [(validate.rules).uint64 = {gte: 1}];
+  // Application name.
+  string name = 2 [(validate.rules).string = {min_len: 1, max_len: 1024}];
+  // Application url.
+  string url = 3 [(validate.rules).string.uri = true];
+  // Application biography.
+  string bio = 4;
+  // Application priority.
+  ApplicationPriority priority = 5 [(validate.rules).message.required = true];
+}
+
+// ListApplicationsRequest represents request of ListApplications.
+message ListApplicationsRequest {
+  // Request source type.
+  SourceType source_type = 1 [(validate.rules).enum.defined_only = true];
+  // Source service hostname.
+  string hostname = 2 [(validate.rules).string.hostname = true];
+  // Source service ip.
+  string ip = 3 [(validate.rules).string.ip = true];
+}
+
+// ListApplicationsResponse represents response of ListApplications.
+message ListApplicationsResponse {
+  // Application configs.
+  repeated Application applications = 1;
+}
+
+// CreateGNNRequest represents to create GNN model request of TrainRequest.
+message CreateGNNRequest {
+  // Protocol buffer file of model.
+  bytes data = 1 [(validate.rules).bytes.min_len = 1];
+  // Recall of the model.
+  double recall = 2 [(validate.rules).double = {gte: 0, lte: 1}];
+  // Precision of the model.
+  double precision = 3 [(validate.rules).double = {gte: 0, lte: 1}];
+  // F1-Score of the model.
+  double f1_score = 4 [(validate.rules).double = {gte: 0, lte: 1}];
+}
+
+// CreateMLPRequest represents to create MLP model request of TrainRequest.
+message CreateMLPRequest {
+  // Protocol buffer file of model.
+  bytes data = 1 [(validate.rules).bytes.min_len = 1];
+  // MSE of the model.
+  double mse = 2 [(validate.rules).double = {gte: 0}];
+  // MAE of the model.
+  double mae = 3 [(validate.rules).double = {gte: 0}];
+}
+
+// CreateModelRequest represents request of CreateModel.
+message CreateModelRequest {
+  // Scheduler hostname.
+  string hostname = 1 [(validate.rules).string.min_len = 1];
+  // Scheduler ip.
+  string ip = 2 [(validate.rules).string.ip = true];
+
+  oneof request {
+    option (validate.required) = true;
+
+    CreateGNNRequest create_gnn_request = 3;
+    CreateMLPRequest create_mlp_request = 4;
+  }
+}
+
+// KeepAliveRequest represents request of KeepAlive.
+message KeepAliveRequest {
+  // Request source type.
+  SourceType source_type = 1 [(validate.rules).enum.defined_only = true];
+  // Source service hostname.
+  string hostname = 2 [(validate.rules).string.hostname = true];
+  // ID of the cluster to which the source service belongs.
+  uint64 cluster_id = 3 [(validate.rules).uint64 = {gte: 1}];
+  // Source service ip.
+  string ip = 4 [(validate.rules).string = {ip: true, ignore_empty: true}];
+}
+
+// Manager RPC Service.
+service Manager {
+  // Get SeedPeer and SeedPeer cluster configuration.
+  rpc GetSeedPeer(GetSeedPeerRequest) returns(SeedPeer);
+
+  // Update SeedPeer configuration.
+  rpc UpdateSeedPeer(UpdateSeedPeerRequest) returns(SeedPeer);
+
+  // Delete SeedPeer configuration.
+  rpc DeleteSeedPeer(DeleteSeedPeerRequest) returns(google.protobuf.Empty);
+
+  // Get Scheduler and Scheduler cluster configuration.
+  rpc GetScheduler(GetSchedulerRequest)returns(Scheduler);
+
+  // Update scheduler configuration.
+  rpc UpdateScheduler(UpdateSchedulerRequest) returns(Scheduler);
+
+  // List acitve schedulers configuration.
+  rpc ListSchedulers(ListSchedulersRequest)returns(ListSchedulersResponse);
+
+  // Get ObjectStorage configuration.
+  rpc GetObjectStorage(GetObjectStorageRequest) returns(ObjectStorage);
+
+  // List buckets configuration.
+  rpc ListBuckets(ListBucketsRequest)returns(ListBucketsResponse);
+
+  // List applications configuration.
+  rpc ListApplications(ListApplicationsRequest)returns(ListApplicationsResponse);
+
+  // Create model and update data of model to object storage.
+  rpc CreateModel(CreateModelRequest)returns(google.protobuf.Empty);
+
+  // KeepAlive with manager.
+  rpc KeepAlive(stream KeepAliveRequest)returns(google.protobuf.Empty);
+}
