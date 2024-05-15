@@ -1,4 +1,4 @@
-module d7y.io/api/v2
+module github.com/dreamniu/dragonfly-api
 
 go 1.20
 
